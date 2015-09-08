@@ -293,17 +293,14 @@ struct page * lookup_swap_cache(swp_entry_t entry)
 	return page;
 }
 
-/* 
- * Locate a page of swap in physical memory, reserving swap cache space
- * and reading the disk if it is not already cached.
- * A failure return means that either the page allocation failed or that
- * the swap entry is no longer in use.
- */
-struct page *read_swap_cache_async(swp_entry_t entry, gfp_t gfp_mask,
-			struct vm_area_struct *vma, unsigned long addr)
+struct page *__read_swap_cache_async(swp_entry_t entry, gfp_t gfp_mask,
+			struct vm_area_struct *vma, unsigned long addr,
+			bool *new_page_allocated)
 {
 	struct page *found_page, *new_page = NULL;
+	struct address_space *swapper_space = swap_address_space(entry);
 	int err;
+	*new_page_allocated = false;
 
 	do {
 		/*
@@ -311,8 +308,7 @@ struct page *read_swap_cache_async(swp_entry_t entry, gfp_t gfp_mask,
 		 * called after lookup_swap_cache() failed, re-calling
 		 * that would confuse statistics.
 		 */
-		found_page = find_get_page(swap_address_space(entry),
-					entry.val);
+		found_page = find_get_page(swapper_space, entry.val);
 		if (found_page)
 			break;
 
@@ -371,7 +367,7 @@ struct page *read_swap_cache_async(swp_entry_t entry, gfp_t gfp_mask,
 			 * Initiate read into locked page and return.
 			 */
 			lru_cache_add_anon(new_page);
-			swap_readpage(new_page);
+			*new_page_allocated = true;
 			return new_page;
 		}
 		radix_tree_preload_end();
@@ -387,6 +383,69 @@ struct page *read_swap_cache_async(swp_entry_t entry, gfp_t gfp_mask,
 	if (new_page)
 		page_cache_release(new_page);
 	return found_page;
+}
+
+/*
+ * Locate a page of swap in physical memory, reserving swap cache space
+ * and reading the disk if it is not already cached.
+ * A failure return means that either the page allocation failed or that
+ * the swap entry is no longer in use.
+ */
+struct page *read_swap_cache_async(swp_entry_t entry, gfp_t gfp_mask,
+			struct vm_area_struct *vma, unsigned long addr)
+{
+	bool page_was_allocated;
+	struct page *retpage = __read_swap_cache_async(entry, gfp_mask,
+			vma, addr, &page_was_allocated);
+
+	if (page_was_allocated)
+		swap_readpage(retpage);
+
+	return retpage;
+}
+
+static unsigned long swapin_nr_pages(unsigned long offset)
+{
+	static unsigned long prev_offset;
+	unsigned int pages, max_pages, last_ra;
+	static atomic_t last_readahead_pages;
+
+	max_pages = 1 << READ_ONCE(page_cluster);
+	if (max_pages <= 1)
+		return 1;
+
+	/*
+	 * This heuristic has been found to work well on both sequential and
+	 * random loads, swapping to hard disk or to SSD: please don't ask
+	 * what the "+ 2" means, it just happens to work well, that's all.
+	 */
+	pages = atomic_xchg(&swapin_readahead_hits, 0) + 2;
+	if (pages == 2) {
+		/*
+		 * We can have no readahead hits to judge by: but must not get
+		 * stuck here forever, so check for an adjacent offset instead
+		 * (and don't even bother to check whether swap type is same).
+		 */
+		if (offset != prev_offset + 1 && offset != prev_offset - 1)
+			pages = 1;
+		prev_offset = offset;
+	} else {
+		unsigned int roundup = 4;
+		while (roundup < pages)
+			roundup <<= 1;
+		pages = roundup;
+	}
+
+	if (pages > max_pages)
+		pages = max_pages;
+
+	/* Don't shrink readahead too fast */
+	last_ra = atomic_read(&last_readahead_pages) / 2;
+	if (pages < last_ra)
+		pages = last_ra;
+	atomic_set(&last_readahead_pages, pages);
+
+	return pages;
 }
 
 /**
