@@ -172,6 +172,7 @@ struct od_dbs_tuners {
 	unsigned int sampling_rate;
 	unsigned int sampling_down_factor;
 	unsigned int up_threshold;
+	unsigned int adj_up_threshold;
 	unsigned int powersave_bias;
 	unsigned int io_is_busy;
 };
@@ -210,6 +211,7 @@ struct sd_dbs_tuners {
 	unsigned int cpu_down_threshold;
 	unsigned int cpu_down_count;
 	unsigned int cpu_num_limit;
+	unsigned int cpu_num_min_limit;
 };
 
 /* Common Governer data across policies */
