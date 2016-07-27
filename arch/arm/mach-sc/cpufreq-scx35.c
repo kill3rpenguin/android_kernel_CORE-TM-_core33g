@@ -216,14 +216,22 @@ static struct cpufreq_table_data sc8830_cpufreq_table_data_es = {
 
 static struct cpufreq_table_data sc8830t_cpufreq_table_data_es = {
 	.freq_tbl = {
-		{0, 1300000},
-		{1, 1000000},
-		{2, SHARK_TDPLL_FREQUENCY},
-		{3, SHARK_TDPLL_FREQUENCY/2},
-		{4, CPUFREQ_TABLE_END},
+		{0, 1600000},
+		{1, 1400000},
+		{2, 1200000},
+		{3, 1000000},
+		{4, 800000},
+		{5, 600000},
+		{6, 400000},
+		{7, 200000},
+		{8, CPUFREQ_TABLE_END},
 	},
 	.vddarm_mv = {
-		1050000,
+		1150000,
+		1100000,
+		1000000,
+		900000,
+		900000,
 		900000,
 		900000,
 		900000,
@@ -443,8 +451,6 @@ static int sprd_cpufreq_target(struct cpufreq_policy *policy,
 	struct cpufreq_frequency_table *table;
 	int max_freq = cpufreq_max_limit;
 	int min_freq = cpufreq_min_limit;
-	int cur_freq = 0;
-	unsigned long irq_flags;
 
 	/* delay 30s to enable dvfs&dynamic-hotplug,
          * except requirment from termal-cooling device
