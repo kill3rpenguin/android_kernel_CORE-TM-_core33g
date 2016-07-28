@@ -214,24 +214,24 @@ static struct cpufreq_table_data sc8830_cpufreq_table_data_es = {
 	},
 };
 
+/* koquantam
+ * 0,075mV for each 200MHz
+ * The lowest voltage is 0,9mV
+ */
 static struct cpufreq_table_data sc8830t_cpufreq_table_data_es = {
 	.freq_tbl = {
 		{0, 1600000},
 		{1, 1400000},
 		{2, 1200000},
 		{3, 1000000},
-		{4, 800000},
-		{5, 600000},
-		{6, 400000},
-		{7, 200000},
-		{8, CPUFREQ_TABLE_END},
+		{4, 600000},
+		{5, 200000},
+		{6, CPUFREQ_TABLE_END},
 	},
 	.vddarm_mv = {
 		1150000,
-		1100000,
+		1075000,
 		1000000,
-		900000,
-		900000,
 		900000,
 		900000,
 		900000,
@@ -426,8 +426,8 @@ static int sprd_cpufreq_verify_speed(struct cpufreq_policy *policy)
 	return cpufreq_frequency_table_verify(policy, sprd_cpufreq_conf->freq_tbl);
 }
 
-unsigned int cpufreq_min_limit = 384000;
-unsigned int cpufreq_max_limit = 1200000;
+unsigned int cpufreq_min_limit = ULONG_MAX;
+unsigned int cpufreq_max_limit = 0;
 unsigned int dvfs_score_select = 5;
 unsigned int dvfs_unplug_select = 2;
 unsigned int dvfs_plug_select = 0;
