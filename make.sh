@@ -1,1 +1,1 @@
-make cyanogen_core33g_defconfig && make -j2
+make CORE_defconfig && make -j2
